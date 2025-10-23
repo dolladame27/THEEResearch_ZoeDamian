@@ -1,67 +1,102 @@
-# --- one generation ---
-simulation <- function(N_A, N_a, decay_rate, sel_coeff, mut_rate,
-                       R0 = 1.2, K = 1000) {
-  N_tot <- N_A + N_a
-  if (N_tot == 0) return(c(a = 0, A = 0))
+## ---------- Lynx two-type model ----------
+
+# One time step (generation)
+step_lynx <- function(N_a, N_A, R_a = 0.9, R_A = 1.15,
+                      s_a = 0.2, s_A = 0.2,
+                      K = 500,
+                      stochastic = FALSE) {
   
-  p <- N_A / N_tot
+  Ntot <- N_a + N_A
+  if (Ntot <= 0) return(c(a = 0, A = 0))
   
-  # frequency dependence (your original form)
-  w_a <- 1 + sel_coeff * (p - 1)
-  w_A <- 1 + sel_coeff * (1 - p)
+  pA <- N_A / Ntot              # frequency of A
+  # frequency effects (centered at 0.5; change if you want a different midpoint)
+  w_a <- 1 + s_a * (pA - 0.5)  # a has NEGATIVE freq dep. (rarer a -> higher pA -> higher w_a)
+  w_A <- 1 + s_A * (pA - 0.5)  # A has POSITIVE  freq dep. (higher pA -> higher w_A)
   
-  # ---- CARRYING CAPACITY here ----
-  density_factor <- R0 / (1 + N_tot / K)
+  # keep multipliers non-negative
+  w_a <- max(0, w_a)
+  w_A <- max(0, w_A)
   
-  lambda_a <- N_a * w_a * density_factor
-  lambda_A <- N_A * w_A * density_factor
+  # Beverton–Holt density regulation
+  D <- 1 / (1 + Ntot / K)
   
-  # guard against negatives
-  lambda_a <- max(0, lambda_a)
-  lambda_A <- max(0, lambda_A)
+  # per-type expected next counts
+  lambda_a <- N_a * R_a * w_a * D
+  lambda_A <- N_A * R_A * w_A * D
   
-  c(a = rpois(1, lambda_a),
-    A = rpois(1, lambda_A))
-}
-simulation_pop <- function(N_init_a, N_init_A, decay_rate, sel_coeff, mut_rate,
-                           t_max, R0 = 1.2, K = 1000) {
-  pop_new <- c(a = N_init_a, A = N_init_A)
-  pop_vec <- matrix(pop_new, nrow = 1, dimnames = list("0", c("a","A")))
-  start_total <- sum(pop_new)
-  
-  for (i in 1:t_max) {
-    pop_new <- simulation(
-      N_A = pop_new["A"],  # A first
-      N_a = pop_new["a"],  # then a
-      decay_rate = decay_rate,
-      sel_coeff  = sel_coeff,
-      mut_rate   = mut_rate,
-      R0 = R0, K = K       # <- pass K (and R0)
-    )
-    pop_vec <- rbind(pop_vec, pop_new)
-    rownames(pop_vec)[nrow(pop_vec)] <- as.character(i)
-    
-    total_now <- sum(pop_new)
-    if (total_now >= 50 * start_total || total_now == 0) break
+  if (!stochastic) {
+    N_a1 <- lambda_a
+    N_A1 <- lambda_A
+  } else {
+    # Poisson demographic noise
+    N_a1 <- rpois(1, max(0, lambda_a))
+    N_A1 <- rpois(1, max(0, lambda_A))
   }
-  pop_vec
+  
+  c(a = N_a1, A = N_A1)
 }
-set.seed(1)
-out <- simulation_pop(100, 10, decay_rate = 0, sel_coeff = 0.5, mut_rate = 0,
-                      t_max = 500, R0 = 1.2, K = 300)
-gens   <- 0:(nrow(out)-1)
-total  <- rowSums(out)
 
-plot(gens, total, type = "l",
-     xlab = "Generation", ylab = "Population size",
-     ylim = c(0, max(total, 1.05*300)))   # 300 = K; adjust if different
+# Simulate many generations
+simulate_lynx <- function(Na0 = 100, NA0 = 10,
+                          R_a = 0.9, R_A = 1.15,
+                          s_a = 0.2, s_A = 0.2,
+                          K = 500,
+                          t_max = 300,
+                          stochastic = FALSE) {
+  out <- matrix(NA_real_, nrow = t_max + 1, ncol = 2,
+                dimnames = list(0:t_max, c("a","A")))
+  out[1, ] <- c(a = Na0, A = NA0)
+  
+  for (t in 1:t_max) {
+    nxt <- step_lynx(out[t, "a"], out[t, "A"],
+                     R_a = R_a, R_A = R_A,
+                     s_a = s_a, s_A = s_A,
+                     K = K, stochastic = stochastic)
+    out[t + 1, ] <- nxt
+    if (sum(nxt) <= 0) break  # extinct; remaining rows stay N_A
+  }
+  out
+}
 
-lines(gens, out[,"a"], col = "blue")
-lines(gens, out[,"A"], col = "red")
+# Quick plot helper
+plot_lynx <- function(out, K, main = "Lynx population dyN_Amics") {
+  gens  <- as.numeric(rownames(out))
+  valid <- complete.cases(out)
+  gens  <- gens[valid]; out <- out[valid, , drop = FALSE]
+  
+  total <- rowSums(out)
+  plot(gens, total, type = "l",
+       xlab = "Generation", ylab = "Population size",
+       ylim = c(0, max(total, K)),
+       main = main)
+  lines(gens, out[, "a"], col = "blue")
+  lines(gens, out[, "A"], col = "red")
+  abline(h = K, lty = 2)
+  legend("topright",
+         legend = c("Total", "a (wildtype)", "A (introduced)", "K"),
+         lty = c(1,1,1,2), col = c("black","blue","red","black"),
+         bty = "n")
+}
 
-abline(h = 300, lty = 2)                  # horizontal line at K
-legend("topright",
-       legend = c("Total", "a", "A", "K"),
-       lty = c(1,1,1,2), col = c("black","blue","red","black"),
-       bty = "n")
+## ---------- Examples ----------
+
+# Deterministic run
+out_det <- simulate_lynx(Na0 = 100, NA0 = 10,
+                         R_a = 0.9, R_A = 1.15,
+                         s_a = 0.2, s_A = 0.2,
+                         K = 500, t_max = 300,
+                         stochastic = FALSE)
+plot_lynx(out_det, K = 500, main = "Deterministic")
+
+# Stochastic run
+set.seed(42)
+out_sto <- simulate_lynx(Na0 = 100, NA0 = 10,
+                         R_a = 0.9, R_A = 1.15,
+                         s_a = 0.2, s_A = 0.2,
+                         K = 500, t_max = 300,
+                         stochastic = TRUE)
+plot_lynx(out_sto, K = 500, main = "Stochastic")
+
+
 

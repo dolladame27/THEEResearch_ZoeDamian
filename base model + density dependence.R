@@ -3,9 +3,9 @@
 # Key Parameter(or Variable?): p0, initial fraction of mutants
 
 ## Parameters
-N0  <- 10000      # initial total population size
+N0  <- 100      # initial total population size
 p0  <- 0.01      # initial fraction of mutants
-K   <- 50000      # carrying capacity
+K   <- 5000      # carrying capacity
 w_a <- 0.95       # intrinsic fitness of wildtype (below 1)
 w_A <- 1.05       # intrinsic fitness of mutant (above 1)
 f_a <- 1.0        # wildtype density sensitivity
