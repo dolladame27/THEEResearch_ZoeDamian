@@ -1,0 +1,47 @@
+---
+title: "README_THEEproject"
+author: "Damian Vogt"
+date: "2025-11-07"
+output: html_document
+---
+
+## Contents of Repository:
+
+-   Main Branch: Shared Files, Code and Documents from Damian and Zoe from the first two Weeks of Practical and shared modelling.
+
+-   Branch "Project-Repository-Damian": This is the Folder of my project converging from the "main" Branch. It contains everything from the start of the Practical to the finished Documents of my Project, namely: R Notebook (which contains the code as well as description), Report, Presentation Slides (Which will be uploaded after presenting) and this README R Markdown file.
+
+-   Branch "Project-Repository-Zoe": This is the final Project Folder of Zoe's project, converging from the "main" Branch. Just as my Folder, it contains everything from the start of the practical to her own finished project. If you are looking for her project folder, this is my official reminder that you are in the wrong Branch of our repository.
+
+-   Project contents and how to navigate inside the Branch:
+
+## Project folder content and how to navigate through Branches: 
+
+As you may have noticed, the Branch contains a few files all over the place. Since I couldn't (yet) figure out how to create or organise them into subfolders, There is a README File inside the Main Branch to navigate through the Repository. The Main Branch contains everything that came together in the process of making this Model, from the start of the practical where Zoe and I worked jointly on our Base Question and model, to the finish, where we both investigated the Basemodel further under different aspects and assumptions.
+
+Each file is Labelled, so if you know what you are looking for, it should still be fairly easy.
+
+As mentioned above, each Project Branch diverged from the main Branch. The Project branches contain only the review relevant files and code.
+
+This Project Folder contains:
+
+|  |  |  |
+|:---|:---|:---|
+| [THEE Report Damian Vogt Draft.pdf](https://github.com/dolladame27/THEEResearch_ZoeDamian/blob/Project-Repository-Damian/THEE%20Report%20Damian%20Vogt%20Draft.pdf "THEE Report Damian Vogt Draft.pdf") | [Report Draft Damian](https://github.com/dolladame27/THEEResearch_ZoeDamian/commit/b8e48d76e13805a2bb221bf390fe598caabaa9be "Report Draft Damian 
+
+This is the official Report document for review.") | Official Review Report Draft |
+| [report.Rmd](https://github.com/dolladame27/THEEResearch_ZoeDamian/blob/Project-Repository-Damian/report.Rmd "report.Rmd") | [Report R Notebook](https://github.com/dolladame27/THEEResearch_ZoeDamian/commit/81f67670840d83055233422efc82b9e0c4765db8 "Report R Notebook
+
+This is the official Project Notebook for review.") | Official Review Notebook containing Base Code |
+
+## Contributions and Acknowledgements: 
+
+As mentioned above, this project started together with Zoe as a group project. We came up with our common base of our models, namely the rescue of haploid populations with differential density dependences and fitnesses. We then approached this base from different perspectives and investigated diverging questions coming from a commonly conducted standpoint.
+
+I want to thank Zoe Schuler for the joint conduction of our questions, collection of ideas and programming of lots of code for the Base model.
+
+Furthermore, I want to thank our Professor and leader of the THEE course practical, Prof. Dr. Claudia Bank, not only for providing the Base Code for Evolutionary Rescue, supervising the course with great care, teaching competence and skill, but also for being very thoughtful and attentive, listening and solving any problem that may have arisen during the course of this practical. In addition I want to say thank you for the support in coding chunks of my model and for making sure I was able to stay on track!
+
+Also, I want to thank to everyone who participated and supervised in this course, for the vital feedback I was able to receive from everyone, especially Russell Jasper for investing hours in aiding in my coding and fixing bugs, and to Dr. Franziska Brenninger, who assisted me alot in reviewing my code, providing feedback and giving tips for my model. .
+
+## 
