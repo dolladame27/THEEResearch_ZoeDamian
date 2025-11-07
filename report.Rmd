@@ -1,0 +1,765 @@
+---
+title: 'Evolutionary Rescue in Conservation: A Theoretical Model inspired by the Iberian
+  Lynx (Lynx pardus)'
+author: "Damian Vogt"
+date: "05.11.2025"
+output:
+  html_document:
+    df_print: paged
+---
+
+### List of Parameters and Variables: 
+
+```{r eval=FALSE, include=FALSE}
+N_A <- "Mutant Pop Size "
+N_a <- "Wildtype Pop Size"
+N_Aa <- "Heterozygote Pop Size"
+N_tot <- "Total Pop Size"
+w_A <- "Intrinsic Mutant Fitness"
+w_a <- "Intrinsic Wildtype Fitness"
+w_Aa <- "Intrinsic Heterozygote Fitness"
+sigma_env_a <- "Environmental SD for Wildtype"
+sigma_env_A <- "Environmental SD for Mutant"
+sigma_env_Aa <- "Environmental SD for Heterozygote"
+r_a <- "Expected Wildtype Growth Rate "
+r_A <- "Expected Mutant Growth Rate"
+r_Aa <- "Expected Heterozygote Growth Rate"
+K <- "Total Pop. Carrying Capacity"
+A <- "Total Pop. Allee coefficient"
+t_max <- "max. time for simulation"
+max_gen <- "max. generation for simulation"
+```
+
+# 1. Defining growth functions and Simulation of first, non-panmictic generation
+
+First step: set seed for reproducibility, then define a function to simulate the first generation.
+
+```{r}
+set.seed(42)
+
+simulate_one_gen1 <- function(N_a, N_A, w_a, w_A,  R_rate, sigma_env_a, sigma_env_A, K, A) {
+  # draw offspring according to Poisson distribution
+  #N_a1 <- rpois(1, N_a * w_a *max(0,rnorm(1,mean=1,sd=sigma_env_a)))
+  
+  #N_A1 <- rpois(1, N_A * w_A *max(0,rnorm(1,mean=1,sd=sigma_env_A)))
+  # draw new mutants according to Poisson distribution
+  #mut_a_to_A <- rpois(1, offsp_a * R_rate)
+  
+  Ntot <- N_a + N_A # total pop
+  
+  dens <- max(0, 1 - Ntot / K) # density dependence on total pop. 
+  
+  allee <- (Ntot / (Ntot + A))^0.5  #Allee effect aff. total pop. 
+  
+  env_a <- max(0, rnorm(1, mean=1, sd= sigma_env_a))  #env.eff. alr normal dist.
+  env_A <- max(0, rnorm(1, mean=1, sd= sigma_env_A))
+  
+  #r_a <- exp(w_a-(1-N_a/K)*N_a/(N_a+A))   #population growth rates
+  #r_A <- exp(w_A-(1-N_A/K)*N_A/(N_A+A))
+  
+  r_a <- w_a*dens*allee                #corrected pop growth formula
+  r_A <- w_A*dens*allee
+  
+  #r_a <- exp(w_a * (1 - Ntot / K)) * allee
+  #r_A <- exp(w_A * (1 - Ntot / K)) * allee
+  
+  #N_a1 <- rpois(1, N_a*r_a*env_a)     #final step: calc. next generations
+  #N_A1 <- rpois(1, N_A*r_A*env_A)
+  
+  N_a1 <- rpois(1, N_a*r_a*env_a)
+  N_A1 <- rpois(1, N_A*r_A*env_A)
+  
+  # determine new population sizes of wild type and mutant
+  #N_a_new <- offsp_a + N_a
+  #N_A_new <-  offsp_A + N_A
+  
+  return(c(N_a1, N_A1))
+  return(c(r_a, r_A))
+}
+# Test the function
+print(simulate_one_gen1(100,20,1.01,1.5,0, sigma_env_a = 0.1, sigma_env_A = 0.3, K=5000, A=20))
+```
+
+# 2. Simulating non-panmictic population
+
+Define new variables and function for population simulation
+
+```{r}
+set.seed(42)
+N_init_a <- 100
+N_init_A <- 20
+K <- 5000
+A <- 20
+t_max <- 100
+
+simulate_pop <- function(N_init_a, N_init_A, w_a, w_A, R_rate, t_max, sigma_env_a, sigma_env_A, K, A) {
+  # Create the vector in which to save the results
+  pop_vector <- c(N_init_a, N_init_A)
+  # initiate the variables
+  pop_new <- c(N_init_a, N_init_A)
+  
+  # run the simulation until generation t_max
+  for (i in 1:t_max) {
+    # redefine the current population one generation later
+    pop_new <- simulate_one_gen1(pop_new[1],pop_new[2], w_a, w_A, R_rate, sigma_env_a, sigma_env_A, K, A)
+    # add the new population sizes to the output vector
+    pop_vector <- rbind(pop_vector,pop_new)
+    # condition to stop the simulation before t_max: either the population exceeds 5000 or it goes extinct
+    if (pop_new[1]+pop_new[2]==0) break
+  }
+  
+  # define the row and column names of the output vector
+  rownames(pop_vector) <- (0:t_max)[1:length(pop_vector[,1])] # note that the vector has to be cut if the simulation stopped early
+  colnames(pop_vector) <- c("a","A")
+  # return the result
+  return(pop_vector)	
+}
+```
+
+## testing the function and plotting results
+
+```{r}
+
+# Test the function and plot the result
+# set t_max to a value to be used througout
+max_gen <- 100
+# create your simulation data
+output <- simulate_pop(100,100,1.1,1.3,0,max_gen, sigma_env_a=0.1, sigma_env_A=0.3, 5000, 20)
+# show the last few lines of the data table
+print(tail(output))
+
+
+
+# Determine x axis range
+x_range <- 0:(nrow(output) - 1)
+
+# Plot total population size
+plot(x_range,
+     output[,1] + output[,2],
+     type = "l",
+     ylim = c(0, 3000),
+     xlim = c(0, max_gen),
+     xlab = "Generation",
+     ylab = "Population size")
+
+# Add wild-type individuals (red)
+lines(x_range, output[,1], col = "red")
+
+# Add mutant individuals (blue)
+lines(x_range, output[,2], col = "blue")
+
+# Optional: add legend
+legend("topright",
+       legend = c("Total", "Wild-type (a)", "Mutant (A)"),
+       col = c("black", "red", "blue"),
+       lty = 1)
+
+```
+
+# 3.1 Extinction probabilities without rescue: varying sigma_env
+
+```{r}
+set.seed(42)
+# Determine how long to run the simulation
+t_max <- 20
+# Determine the parameter to vary -- here it's w_a
+var_sigma <- seq(0, 0.5, by = 0.025)
+# compute how many values you are testing
+no_var_sigma <- length(var_sigma)
+
+# create array/data frame in which to save the results
+arr <- array(NA, dim = c(no_var_sigma,2), dimnames = list(NULL,c("p_ext", "sigma_a"))) 
+df <- data.frame(arr)
+
+# # As a reminder: the function above has a bit of a too complex output
+# print(simulate_pop(1000,0,1.1,1.2,0.001,tmax, sigma_env_a=0.1, sigma_env_A=0.1))
+# 
+# # We need only a part of the output -- a) whether or not extinction occurred and b) the frequency at the end
+# # All this info is contained in the last line of the table
+# tail(simulate_pop(1000,0,1.1,1.2,0.001,tmax, sigma_env_a=0.1, sigma_env_A=0.1),1)
+# 
+# sim_output_end <- tail(simulate_pop(1000,0,1.1,1.2,0.001,tmax, sigma_env_a=0.1, sigma_env_A=0.1),1)
+# print(sim_output_end)
+# 
+# # this is how to compute whether extinction occurred
+# out <- TRUE
+# if (sum(sim_output_end)==0)
+# {
+# out <- FALSE
+# }
+# print(out)
+# 
+# # this is how to compute end pop size and end frequency of a
+# out <- c(0,0)
+# if (sum(sim_output_end)>0)
+# {
+# end_pop <- sum(sim_output_end)
+# end_freq <- sim_output_end[1]/end_pop
+# out <- c(end_pop,end_freq)
+# }
+# print(out)
+
+# Parameters
+N0 <- 100
+K <- 5000
+A <- 20
+
+# Now let's define a function that gives us the output
+run_sim_c <- function(N_init_a, N_init_A, w_a, w_A, R_rate, t_max, sigma_env_a, sigma_env_A, K, A)
+{
+  sim_output_end <- tail(simulate_pop(N_init_a, N_init_A, w_a, w_A, R_rate, t_max, sigma_env_a, sigma_env_A, K, A),1)
+  out <- 1
+  if (sum(sim_output_end)==0)
+  {
+    out <- 0
+  }
+  return(out)
+}
+
+# check <- run_sim_c(1000,0,1,1.2,0.001,tmax, sigma_env_a=0.1, sigma_env_A=0.1)
+# print(check)
+
+# Now we do this many times per parameter value 
+counter <- 1
+nrep <- 1000
+for (choose_sig in var_sigma) {
+  #set.seed(1)
+  
+  results <- replicate(nrep, run_sim_c(100,0,1.05,1.25,0,t_max, sigma_env_a=choose_sig, sigma_env_A=0.1, 5000, 20))
+  # print(results)
+  
+  ###evaluation of sim_a
+  p_success <- mean(results)
+  p_fail <- 1-p_success
+  sd <- sqrt(p_success*(1-p_success))
+  
+  
+  df[counter,1]<- p_fail
+  df[counter,2] <- choose_sig
+  counter <- counter + 1
+}
+
+plot(df$sigma_a, df$p, type = "b", 
+     xlab = "environmental sigma values", 
+     ylab = "extinction probability")
+
+```
+
+# 3.2 extinction probabilities without rescue: varying w_a
+
+```{r}
+set.seed(42)
+# Determine how long to run the simulation
+tmax <- 20
+# Determine the parameter to vary -- here it's w_a
+var_w_a <- seq(0.95, 1.05, by = 0.005)
+# compute how many values you are testing
+no_var_w_a <- length(var_w_a)
+
+# create array/data frame in which to save the results
+arr <- array(NA, dim = c(no_var_w_a,2), dimnames = list(NULL,c("p_ext", "w_a"))) 
+df <- data.frame(arr)
+
+# # As a reminder: the function above has a bit of a too complex output
+# print(simulate_pop(1000,0,1.1,1.2,0.001,tmax, sigma_env_a=0.1, sigma_env_A=0.1))
+# 
+# # We need only a part of the output -- a) whether or not extinction occurred and b) the frequency at the end
+# # All this info is contained in the last line of the table
+# tail(simulate_pop(1000,0,1.1,1.2,0.001,tmax, sigma_env_a=0.1, sigma_env_A=0.1),1)
+# 
+# sim_output_end <- tail(simulate_pop(1000,0,1.1,1.2,0.001,tmax, sigma_env_a=0.1, sigma_env_A=0.1),1)
+# print(sim_output_end)
+# 
+# # this is how to compute whether extinction occurred
+# out <- TRUE
+# if (sum(sim_output_end)==0)
+# {
+# out <- FALSE
+# }
+# print(out)
+# 
+# # this is how to compute end pop size and end frequency of a
+# out <- c(0,0)
+# if (sum(sim_output_end)>0)
+# {
+# end_pop <- sum(sim_output_end)
+# end_freq <- sim_output_end[1]/end_pop
+# out <- c(end_pop,end_freq)
+# }
+# print(out)
+
+# Parameters
+N0 <- 100
+K <- 5000
+A <- 20
+
+# Now let's define a function that gives us the output
+run_sim_c <- function(N_init_a, N_init_A, w_a, w_A, R_rate, t_max, sigma_env_a, sigma_env_A, K, A)
+{
+  sim_output_end <- tail(simulate_pop(N_init_a, N_init_A, w_a, w_A, R_rate, t_max, sigma_env_a, sigma_env_A, K, A),1)
+  out <- 1
+  if (sum(sim_output_end)==0)
+  {
+    out <- 0
+  }
+  return(out)
+}
+
+# check <- run_sim_c(1000,0,1,1.2,0.001,tmax, sigma_env_a=0.1, sigma_env_A=0.1)
+# print(check)
+
+# Now we do this many times per parameter value 
+counter <- 1
+nrep <- 1000
+for (choose_w_a in var_w_a) {
+  #set.seed(1)
+  
+  results <- replicate(nrep, run_sim_c(100,0,w_a=choose_w_a,1.25,0,tmax, sigma_env_a= 0.3, sigma_env_A=0, K, A))
+  # print(results)
+  
+  ###evaluation of sim
+  p_success <- mean(results)
+  p_fail <- 1-p_success
+  sd <- sqrt(p_success*(1-p_success))
+  
+  
+  df[counter,1]<- p_fail
+  df[counter,2] <- choose_w_a
+  counter <- counter + 1
+}
+
+plot(df$w_a, df$p_ext, type = "b", 
+     xlab = "intrinsic wildtype fitness (w_a)", 
+     ylab =  "extinction probability")
+ 
+
+```
+
+# 4. Simulating the population as panmictic with diploid loci
+
+Now we want to layer our model and make the population diploid and panmictic to make it biologically more realistic. For this, we define new, updated functions and introduce new parameters and variables for the new heterozygous Genotype.
+
+```{r}
+### how to make the population diploid? 
+set.seed(18)
+
+simulation_diploid <- function(N_aa, N_Aa, N_AA, w_a, w_Aa, w_A, R_rate, t_max,
+                               sigma_env_a, sigma_env_A, sigma_env_Aa, K, A)
+   
+  {
+  
+### define parameters: 
+AA <- N_AA
+Aa <- N_Aa
+aa <- N_aa
+w_aa <- 1.1
+w_Aa <- 1.25
+w_AA <- 1.5
+sig_a <- 0.1
+sig_Aa <- 0.2
+sig_A <- 0.3
+Ntot <- N_aa+N_Aa+N_AA
+K <- 5000
+A <- 20
+
+## define dens value and allee effect
+dens <- max(0, 1 - Ntot / K) # densitydependence on total pop. 
+allee <- (Ntot / (Ntot + A))^0.5  #Allee effect aff. total pop. 
+
+## define r values
+r_a <- w_a*dens*allee               #corrected pop growth formula
+r_A <- w_A*dens*allee
+r_Aa <- w_Aa*dens*allee
+
+## draw env values
+env_a <- max(0, rnorm(1, mean=1, sd= sig_a))  #env.eff. alr normal dist.
+env_A <- max(0, rnorm(1, mean=1, sd= sig_A))
+env_Aa <- max(0, rnorm(1, mean=1, sd= sig_Aa))
+
+## draw offspring for A and a from Poisson distribution
+N_aa <- rpois(1, N_aa*r_a*env_a)
+N_AA <- rpois(1, N_AA*r_A*env_A)
+N_Aa <- rpois(1, N_Aa*r_Aa*env_Aa)
+
+## calculate total offspring
+total_off <- N_aa+N_Aa+N_AA
+
+if (total_off==0) {
+  return(c(N_aa=0, N_Aa=0, N_AA=0))
+}
+  #break
+
+## calculate A and a Alleles
+count_A <- N_AA*2+N_Aa
+count_a <- N_aa*2+N_Aa
+
+# calculate HW Allele frequencies
+pA <- count_A/2*total_off
+pa <- count_a/2*total_off
+
+# calculate HW genotype frequencies
+probs <- c(pAA= pA^2, pAa= 2*pA*pa, paa= pa^2)
+
+
+
+## draw random offspring 
+next_gen_diploid <- as.vector(rmultinom(1, size= total_off, prob=probs))
+#as.numeric: returns 3x1 matrix drawn from rmultinom as a flat numeric vector
+#rmultinom: assigns random value to each of three genotypes according to HW allele probabilities
+#like binomial, only for multiple variables
+
+# calculate next gen offspring
+N_AA <- next_gen_diploid[1]
+N_Aa <- next_gen_diploid[2]
+N_aa <- next_gen_diploid[3]
+
+c(pAA=N_AA, pAa=N_Aa, paa=N_aa)
+}
+
+simulation_diploid(100, 0, 20, 1.1, 1.2, 1.3, 0, 100, 0.1 ,0.3, 0.2, 5000, 20)
+
+## now we simulate the diploid population
+simulate_diploid <- function(N_init_a, N_init_A, N_init_Aa, w_a, w_A, w_Aa, max_gen, t_max, sig_a, sig_A, sig_Aa, K, A) {
+  # Create the vector in which to save the results
+  pop_vector <- c(N_init_a, N_init_A, N_init_Aa)
+  # initiate the variables
+  pop_new <- c(N_init_a, N_init_A, N_init_Aa)
+  
+  # run the simulation until generation t_max
+  for (i in 1:t_max) {
+    # redefine the current population one generation later
+    pop_new <- simulation_diploid(pop_new[1],pop_new[2],pop_new[3], w_a, w_A, w_Aa, R_rate, sig_a, sig_A, sig_Aa, K, A)
+    # add the new population sizes to the output vector
+    pop_vector <- rbind(pop_vector,pop_new)
+    # condition to stop the simulation before t_max: either the population exceeds 5000 or it goes extinct
+    if (pop_new[1]+pop_new[2]+pop_new[3]==0) break
+  }
+  
+  # define the row and column names of the output vector
+  rownames(pop_vector) <- (0:t_max)[1:length(pop_vector[,1])] # note that the vector has to be cut if the simulation stopped early
+  colnames(pop_vector) <- c("AA","Aa", "aa")
+  # return the result
+  return(pop_vector)	
+}
+
+
+# Test the function and plot the result
+# set t_max to a value to be used througout
+max_gen <- 100
+# create your simulation data
+output<- simulate_diploid(100, 20, 0, 1, 1.5, 1.25, 0, max_gen, 0.1, 0.3, sig_Aa=0.2, K=5000, A=20)
+# show the last few lines of the data table
+print(tail(output))
+
+
+
+# Determine x axis range
+x_range <- 0:(nrow(output) - 1)
+
+# Plot total population size
+plot(x_range,
+     output[,1] + output[,2] + output[,3],
+     type = "l",
+     ylim = c(0, 2500),
+     xlim = c(0, max_gen),
+     xlab = "Generation",
+     ylab = "Population size")
+
+# Add wild-type individuals (red)
+lines(x_range, output[,1], col = "red")
+
+# Add mutant individuals (blue)
+lines(x_range, output[,2], col = "blue")
+
+# Add heterozygote (green)
+lines(x_range,output[,3], col = "green")
+
+# Optional: add legend
+legend("topright",
+       legend = c("Total", "Wild-type (aa)", "Mutant (AA)", "Heterozygote (Aa)"),
+       title = "diploid Lynx pardus population rescue",
+       col = c("black", "red", "blue", "green"),
+       lty = 1)
+
+```
+
+## 4.1 What happens if the mutation is heterozygous?
+
+Now we want to extend our newly diploid model even further: We assume the possibility of Captive-bred mutant individuals as heterozygotes instead of homozygotes: This means, Hetero- and Homozygous Mutants have the same Fitness and environmental sensitivities, and the Mutant allele is now dominant over the wildtype ones. How do the three resulting genotypes get fixed in this scenario, and what are the differences to the previous model?
+
+For this scenario, we assign the fitness and environmental sigma values of the Homozygous mutants from above, to the Heterozygotes. There is no more intermediate Fitness or sigma_env values for Heterozygotes.
+
+Other than that, the code stays identical to the previous. Now we just twitch a few parameters and reassign starting conditions and parameters to fit our assumption.
+
+```{r}
+set.seed(1)
+simulation_heterozyg <- function(N_aa, N_Aa, N_AA, w_a, w_Aa, R_rate, t_max,
+                               sigma_env_a, sigma_env_Aa, K, A)
+  
+{
+  
+  ### define parameters: 
+  AA <- N_AA
+  Aa <- N_Aa
+  aa <- N_aa
+  w_aa <- 1
+  w_Aa <- 1.5
+  
+  sig_a <- 0.1
+  sig_Aa <- 0.3
+  
+  
+  Ntot <- N_aa+N_Aa+N_AA
+  K <- 5000
+  A <- 20
+  
+  ## define dens value and allee effect
+  dens <- max(0, 1 - Ntot / K) # densitydependence on total pop. 
+  allee <- (Ntot / (Ntot + A))^0.5  #Allee effect aff. total pop. 
+  
+  ## define r values
+  r_a <- w_a*dens*allee               #corrected pop growth formula
+
+  r_Aa <- w_Aa*dens*allee
+  
+  ## draw env values
+  env_a <- max(0, rnorm(1, mean=1, sd= sig_a))  #env.eff. alr normal dist.
+  
+  env_Aa <- max(0, rnorm(1, mean=1, sd= sig_Aa))
+  
+  ## draw offspring for A and a from Poisson distribution
+  N_aa <- rpois(1, N_aa*r_a*env_a)
+  N_AA <- rpois(1, N_AA*r_Aa*env_Aa)
+  N_Aa <- rpois(1, N_Aa*r_Aa*env_Aa)
+  
+  ## calculate total offspring
+  total_off <- N_aa+N_Aa+N_AA
+  
+  if (total_off==0) {
+    return(c(N_aa=0, N_Aa=0, N_AA=0))
+  }
+  #break
+  
+  ## calculate A and a Alleles
+  count_A <- N_AA*2+N_Aa
+  count_a <- N_aa*2+N_Aa
+  
+  # calculate HW Allele frequencies
+  pA <- count_A/2*total_off
+  pa <- count_a/2*total_off
+  
+  # calculate HW genotype frequencies
+  probs <- c(pAA= pA^2, pAa= 2*pA*pa, paa= pa^2)
+  
+  
+  
+  ## draw random offspring 
+  next_gen_diploid <- as.vector(rmultinom(1, size= total_off, prob=probs))
+  #as.numeric: returns 3x1 matrix drawn from rmultinom as a flat numeric vector
+  #rmultinom: assigns random value to each of three genotypes according to HW allele probabilities
+  #like binomial, only for multiple variables
+  
+  # calculate next gen offspring
+  N_AA <- next_gen_diploid[1]
+  N_Aa <- next_gen_diploid[2]
+  N_aa <- next_gen_diploid[3]
+  
+  c(pAA=N_AA, pAa=N_Aa, paa=N_aa)
+}
+
+simulation_heterozyg(100, 20, 0, 1, 1.5, 0, 100, 0.1 ,0.3, 5000, 20)
+
+## now we simulate the diploid population
+simulate_hz <- function(N_init_a, N_init_A, N_init_Aa, w_a, w_Aa, max_gen, t_max, sig_a, sig_Aa, K, A) {
+  # Create the vector in which to save the results
+  pop_vector <- c(N_init_a, N_init_A, N_init_Aa)
+  # initiate the variables
+  pop_new <- c(N_init_a, N_init_A, N_init_Aa)
+  
+  # run the simulation until generation t_max
+  for (i in 1:t_max) {
+    # redefine the current population one generation later
+    pop_new <- simulation_heterozyg(pop_new[1],pop_new[2],pop_new[3], w_a, w_Aa, R_rate, sig_a, sig_Aa, K, A)
+    # add the new population sizes to the output vector
+    pop_vector <- rbind(pop_vector,pop_new)
+    # condition to stop the simulation before t_max: either the population exceeds 5000 or it goes extinct
+    if (pop_new[1]+pop_new[2]+pop_new[3]==0) break
+  }
+  
+  # define the row and column names of the output vector
+  rownames(pop_vector) <- (0:t_max)[1:length(pop_vector[,1])] # note that the vector has to be cut if the simulation stopped early
+  colnames(pop_vector) <- c("AA","Aa", "aa")
+  # return the result
+  return(pop_vector)	
+}
+
+
+# Test the function and plot the result
+# set t_max to a value to be used througout
+max_gen <- 100
+# create your simulation data
+output<- simulate_hz(100, 0, 20, 1, 1.5, 0, max_gen, 0.1, sig_Aa=0.3, K=5000, A=20)
+# show the last few lines of the data table
+print(tail(output))
+
+
+
+# Determine x axis range
+x_range <- 0:(nrow(output) - 1)
+
+# Plot total population size
+plot(x_range,
+     output[,1] + output[,2] + output[,3],
+     type = "l",
+     ylim = c(0, 5000),
+     xlim = c(0, max_gen),
+     xlab = "Generation",
+     ylab = "Population size")
+
+# Add wild-type individuals (red)
+lines(x_range, output[,1], col = "red")
+
+# Add mutant individuals (blue)
+lines(x_range, output[,3], col = "blue")
+
+# Add heterozygote (green)
+lines(x_range,output[,2], col = "green")
+
+# Optional: add legend
+legend("topright",
+       legend = c("Total", "Wild-type (aa)", "Mutant (AA)", "Heterozygote (Aa)"),
+       title = "diploid Lynx pardus population rescue",
+       col = c("black", "red", "blue", "green"),
+       lty = 1)
+
+```
+
+# 5. What is the minimal release fraction of mutant individuals to reach target rescue probability of p\>=0.8?
+
+Finally, we want to model for which minimal release number the probability of rescue reaches at least 80%. This is not a predictive result for real application, just an illustrative, quantitative result for this whole theoretical framework.
+
+In this scenario, we assume fitnesses as in the first case simulation of diploid population. AA and Aa have distinct parameters in fitness and environment sensitivity, but to fit the latter model, mutant introductions always have a 50/50 ratio of AA and Aa releases, with Aa getting an edge when numbers are odd (so for instance; when 5 individuals are introduced to the population, we get 3 Aa and 2 AA's)
+
+The initial wildtype population of (aa) to rescue is always N=100, so the more mutants are added, the bigger the initial starting population is, of course increasing survival probability. We want to find the "sweetspot" of minimum 80% rescue chance and the least necessary amount of mutants needed for release.
+
+```{r}
+
+set.seed(1)
+
+### --- One-generation simulation --- ###
+simulation_diploid <- function(N_aa, N_Aa, N_AA,
+                               w_aa, w_Aa, w_AA,
+                               sigma_env_aa, sigma_env_Aa, sigma_env_AA,
+                               K, A) {
+  
+  Ntot <- N_aa + N_Aa + N_AA
+  if (Ntot <= 0) return(c(AA = 0, Aa = 0, aa = 0))
+  
+  # Density dependence & Allee effect
+  dens  <- max(0, 1 - Ntot / K)
+  allee <- (Ntot / (Ntot + A))^0.5
+  
+  # Environmental noise
+  env_aa <- max(0, rnorm(1, mean = 1, sd = sigma_env_aa))
+  env_Aa <- max(0, rnorm(1, mean = 1, sd = sigma_env_Aa))
+  env_AA <- max(0, rnorm(1, mean = 1, sd = sigma_env_AA))
+  
+  # Growth rates
+  r_aa <- w_aa * dens * allee
+  r_Aa <- w_Aa * dens * allee
+  r_AA <- w_AA * dens * allee
+  
+  # Offspring numbers
+  N_aa <- rpois(1, N_aa * r_aa * env_aa)
+  N_Aa <- rpois(1, N_Aa * r_Aa * env_Aa)
+  N_AA <- rpois(1, N_AA * r_AA * env_AA)
+  
+  total_off <- N_aa + N_Aa + N_AA
+  if (total_off == 0) return(c(AA = 0, Aa = 0, aa = 0))
+  
+  # Allele frequencies
+  pA <- (2 * N_AA + N_Aa) / (2 * total_off)
+  pa <- 1 - pA
+  
+  # Genotype frequencies (Hardy-Weinberg)
+  probs <- c(AA = pA^2, Aa = 2 * pA * pa, aa = pa^2)
+  
+  # Next generation (multinomial draw)
+  next_gen <- as.vector(rmultinom(1, size = total_off, prob = probs))
+  names(next_gen) <- c("AA", "Aa", "aa")
+  
+  return(next_gen)
+}
+
+
+### --- Full population trajectory --- ###
+simulate_population <- function(N_aa0, N_Aa0, N_AA0,
+                                w_aa, w_Aa, w_AA,
+                                sigma_env_aa, sigma_env_Aa, sigma_env_AA,
+                                K, A, t_max = 100) {
+  
+  pop <- matrix(NA, nrow = t_max, ncol = 3)
+  colnames(pop) <- c("AA", "Aa", "aa")
+  pop[1, ] <- c(N_AA0, N_Aa0, N_aa0)
+  
+  for (t in 2:t_max) {
+    pop[t, ] <- simulation_diploid(pop[t-1, "aa"], pop[t-1, "Aa"], pop[t-1, "AA"],
+                                   w_aa, w_Aa, w_AA,
+                                   sigma_env_aa, sigma_env_Aa, sigma_env_AA,
+                                   K, A)
+    if (sum(pop[t, ]) == 0) break  # extinction
+  }
+  return(pop[1:t, ])
+}
+
+
+### --- Monte Carlo estimator --- ###
+rescue_prob <- function(mutants, N_aa0 = 100,
+                        w_aa = 1.1, w_Aa = 1.2, w_AA = 1.3,
+                        sigma_env_aa = 0.1, sigma_env_Aa = 0.2, sigma_env_AA = 0.3,
+                        K = 5000, A = 20, t_max = 100,
+                        nsim = 500, rescue_threshold = 500) {
+  
+  N_AA0 <- floor(mutants / 2)
+  N_Aa0 <- ceiling(mutants / 2)
+  
+  hits <- replicate(nsim, {
+    out <- simulate_population(N_aa0, N_Aa0, N_AA0,
+                               w_aa, w_Aa, w_AA,
+                               sigma_env_aa, sigma_env_Aa, sigma_env_AA,
+                               K, A, t_max)
+    any(rowSums(out) >= rescue_threshold)
+  })
+  mean(hits)
+}
+
+
+### --- Sweep over introductions --- ###
+target <- 0.8
+mutant_range <- seq(0, 100, by = 5)
+
+res_tab <- data.frame(mutants = mutant_range, p_rescue = NA_real_)
+
+for (i in seq_along(mutant_range)) {
+  res_tab$p_rescue[i] <- rescue_prob(mutants = mutant_range[i])
+  cat("Mutants:", mutant_range[i], "- P_rescue:", round(res_tab$p_rescue[i], 3), "\n")
+}
+
+# Find minimal mutants achieving target probability
+cand <- subset(res_tab, p_rescue >= target)
+if (nrow(cand) > 0) {
+  min_mutants <- min(cand$mutants)
+  message(sprintf("Minimal number of mutants for ≥ %.0f%% rescue: %d individuals",
+                  target * 100, min_mutants))
+} else {
+  message("No value reached the 80% rescue threshold. Increase mutant range or adjust parameters.")
+}
+
+# Plot results
+plot(res_tab$mutants, res_tab$p_rescue, type = "b", pch = 16,
+     xlab = "Number of introduced mutants (Aa + AA)",
+     ylab = "Rescue probability",
+     main = "Rescue probability vs mutant introductions")
+abline(h = target, col = "red", lty = 2)
+
+```
