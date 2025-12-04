@@ -1,6 +1,6 @@
 ---
 title: 'Evolutionary Rescue in Conservation: A Theoretical Model inspired by the Iberian
-  Lynx (Lynx pardus)'
+  Lynx (Lynx pardinus)'
 author: "Damian Vogt"
 date: "05.11.2025"
 output:
@@ -685,3 +685,4 @@ plot(res_tab$mutants, res_tab$p_rescue, type = "b", pch = 16,
 abline(h = target, col = "red", lty = 2)
 
 ```
+
